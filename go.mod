@@ -1,4 +1,4 @@
-module mongo_driver
+module github.com/zhangsq-ax/mongo-driver
 
 go 1.15
 
