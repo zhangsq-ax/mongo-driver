@@ -15,7 +15,7 @@ type MongoDriver struct {
 	db     *mongo.Database
 }
 
-type NewMongoDriverOptions struct {
+type MongoDriverOptions struct {
 	Database string
 	Host     string
 	Port     int
@@ -23,7 +23,13 @@ type NewMongoDriverOptions struct {
 	Password string
 }
 
-func NewMongoDriver(opts NewMongoDriverOptions) (*MongoDriver, error) {
+type IndexOptions struct {
+	Name   string
+	Keys   map[string]int
+	Unique bool
+}
+
+func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
 	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d", opts.Username, opts.Password, opts.Host, opts.Port))
 	if err != nil {
 		return nil, err
@@ -84,18 +90,18 @@ func hasIndex(c *mongo.Collection, idxName string) (bool, error) {
 	return false, nil
 }
 
-func CreateIndex(c *mongo.Collection, fieldNames ...string) error {
-	for _, fieldName := range fieldNames {
-		exists, err := hasIndex(c, fmt.Sprintf("idx_%s", fieldName))
+func CreateIndex(c *mongo.Collection, opts ...IndexOptions) error {
+	for _, opt := range opts {
+		exists, err := hasIndex(c, opt.Name)
 		if err != nil {
 			return err
 		}
 		if !exists {
+			opts := options.Index()
+			opts.SetUnique(opt.Unique).SetName(opt.Name)
 			im := mongo.IndexModel{
-				Keys: bson.M{
-					fieldName: 1,
-				},
-				Options: options.Index().SetUnique(true).SetName(fmt.Sprintf("idx_%s", fieldName)),
+				Keys:    opt.Keys,
+				Options: opts,
 			}
 			iv := c.Indexes()
 			str, err := iv.CreateOne(context.Background(), im)
@@ -108,12 +114,13 @@ func CreateIndex(c *mongo.Collection, fieldNames ...string) error {
 	return nil
 }
 
-func RemoveIndex(c *mongo.Collection, fieldName string) error {
+func RemoveIndex(c *mongo.Collection, indexNames ...string) error {
 	iv := c.Indexes()
-	r, err := iv.DropOne(context.Background(), fmt.Sprintf("idx_%s", fieldName))
-	if err != nil {
-		return err
+	for _, indexName := range indexNames {
+		_, err := iv.DropOne(context.Background(), indexName)
+		if err != nil {
+			return err
+		}
 	}
-	log.Println(r)
 	return nil
 }
