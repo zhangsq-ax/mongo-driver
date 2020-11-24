@@ -31,6 +31,13 @@ type IndexOption struct {
 	Unique bool
 }
 
+type ListOption struct {
+	Filter bson.M
+	Sorter bson.D
+	Limit  int64
+	Skip   int64
+}
+
 func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
 	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d", opts.Username, opts.Password, opts.Host, opts.Port))
 	if err != nil {
@@ -147,4 +154,18 @@ func RemoveIndexByOption(c *mongo.Collection, opts ...*IndexOption) error {
 	}
 
 	return RemoveIndex(c, indexNames...)
+}
+
+func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
+	opts := options.Find().SetLimit(opt.Limit).SetSkip(opt.Skip)
+	if opt.Sorter != nil {
+		opts.SetSort(opt.Sorter)
+	}
+
+	cursor, err := c.Find(context.Background(), opt.Filter, opts)
+	if err != nil {
+		return err
+	}
+
+	return cursor.All(context.Background(), results)
 }
