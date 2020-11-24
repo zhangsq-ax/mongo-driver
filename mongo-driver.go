@@ -7,6 +7,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -23,7 +25,7 @@ type MongoDriverOptions struct {
 	Password string
 }
 
-type IndexOptions struct {
+type IndexOption struct {
 	Name   string
 	Keys   map[string]int
 	Unique bool
@@ -90,8 +92,20 @@ func hasIndex(c *mongo.Collection, idxName string) (bool, error) {
 	return false, nil
 }
 
-func CreateIndex(c *mongo.Collection, opts ...IndexOptions) error {
+func generateIndexName(opts *IndexOption) {
+	if opts.Name == "" {
+		var fields []string
+		for field, _ := range opts.Keys {
+			fields = append(fields, field)
+		}
+		sort.Strings(fields)
+		opts.Name = fmt.Sprintf("idx_%s", strings.Join(fields, "_"))
+	}
+}
+
+func CreateIndex(c *mongo.Collection, opts ...*IndexOption) error {
 	for _, opt := range opts {
+		generateIndexName(opt)
 		exists, err := hasIndex(c, opt.Name)
 		if err != nil {
 			return err
@@ -123,4 +137,14 @@ func RemoveIndex(c *mongo.Collection, indexNames ...string) error {
 		}
 	}
 	return nil
+}
+
+func RemoveIndexByOption(c *mongo.Collection, opts ...*IndexOption) error {
+	var indexNames []string
+	for _, opt := range opts {
+		generateIndexName(opt)
+		indexNames = append(indexNames, opt.Name)
+	}
+
+	return RemoveIndex(c, indexNames...)
 }
