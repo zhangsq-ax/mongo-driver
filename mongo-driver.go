@@ -157,7 +157,10 @@ func RemoveIndexByOption(c *mongo.Collection, opts ...*IndexOption) error {
 }
 
 func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
-	opts := options.Find().SetLimit(opt.Limit).SetSkip(opt.Skip)
+	opts := options.Find()
+	if opt.Limit > 0 && opt.Skip > 0 {
+		opts.SetLimit(opt.Limit).SetSkip(opt.Skip)
+	}
 	if opt.Sorter != nil {
 		opts.SetSort(opt.Sorter)
 	}
