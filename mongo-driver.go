@@ -32,8 +32,8 @@ type IndexOption struct {
 }
 
 type ListOption struct {
-	Filter bson.M
-	Sorter bson.D
+	Filter interface{}
+	Sorter interface{}
 	Limit  int64
 	Skip   int64
 }
