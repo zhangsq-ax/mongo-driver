@@ -165,6 +165,10 @@ func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
 		opts.SetSort(opt.Sorter)
 	}
 
+	if opt.Filter == nil {
+		opt.Filter = bson.D{{}}
+	}
+
 	cursor, err := c.Find(context.Background(), opt.Filter, opts)
 	if err != nil {
 		return err
