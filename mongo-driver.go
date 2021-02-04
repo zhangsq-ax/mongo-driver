@@ -1,10 +1,12 @@
 package mongo_driver
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"sort"
@@ -13,8 +15,9 @@ import (
 )
 
 type MongoDriver struct {
-	client *mongo.Client
-	db     *mongo.Database
+	client    *mongo.Client
+	db        *mongo.Database
+	fsBuckets map[string]*gridfs.Bucket
 }
 
 type MongoDriverOptions struct {
@@ -45,13 +48,90 @@ func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
 	}
 
 	return &MongoDriver{
-		client: client,
-		db:     client.Database(opts.Database),
+		client:    client,
+		db:        client.Database(opts.Database),
+		fsBuckets: make(map[string]*gridfs.Bucket),
 	}, nil
 }
 
 func (d *MongoDriver) GetCollection(name string) *mongo.Collection {
 	return d.db.Collection(name)
+}
+
+func (d *MongoDriver) GetGridfsBucket(name string) (bucket *gridfs.Bucket, err error) {
+	var ok bool
+	bucket, ok = d.fsBuckets[name]
+	if !ok {
+		if name == "" || name == options.DefaultName {
+			bucket, err = gridfs.NewBucket(d.db)
+		} else {
+			opts := options.GridFSBucket().SetName(name)
+			bucket, err = gridfs.NewBucket(d.db, opts)
+		}
+		d.fsBuckets[name] = bucket
+	}
+	return
+}
+
+func (d *MongoDriver) UploadFile(gridfsBucketName, fileID, fileName string, fileContent []byte) error {
+	bucket, err := d.GetGridfsBucket(gridfsBucketName)
+	if err != nil {
+		return err
+	}
+	err = bucket.UploadFromStreamWithID(fileID, fileName, bytes.NewBuffer(fileContent))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *MongoDriver) DownloadFile(gridfsBucketName, fileID string) (fileInfo *gridfs.File, fileContent []byte, err error) {
+	var stream *gridfs.DownloadStream
+	stream, err = d.GetFileDownloadStream(gridfsBucketName, fileID)
+	defer func() {
+		err := stream.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+	if err != nil {
+		return
+	}
+	fileInfo = stream.GetFile()
+	var bucket *gridfs.Bucket
+	bucket, err = d.GetGridfsBucket(gridfsBucketName)
+	if err != nil {
+		return
+	}
+	fileBuffer := bytes.NewBuffer(nil)
+	_, err = bucket.DownloadToStream(fileID, fileBuffer)
+	if err != nil {
+		return
+	}
+	fileContent = fileBuffer.Bytes()
+	return
+}
+
+func (d *MongoDriver) GetFileDownloadStream(gridfsBucketName, fileID string) (stream *gridfs.DownloadStream, err error) {
+	var bucket *gridfs.Bucket
+	bucket, err = d.GetGridfsBucket(gridfsBucketName)
+	if err != nil {
+		return
+	}
+	stream, err = bucket.OpenDownloadStream(fileID)
+	return
+}
+
+func (d *MongoDriver) DeleteFile(gridfsBucketName, fileID string) error {
+	bucket, err := d.GetGridfsBucket(gridfsBucketName)
+	if err != nil {
+		return err
+	}
+	err = bucket.Delete(fileID)
+	if err != nil && err != gridfs.ErrFileNotFound {
+		return err
+	}
+	return nil
 }
 
 func connect(mongoUri string) (*mongo.Client, error) {
