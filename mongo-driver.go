@@ -35,10 +35,11 @@ type IndexOption struct {
 }
 
 type ListOption struct {
-	Filter interface{}
-	Sorter interface{}
-	Limit  int64
-	Skip   int64
+	Filter     interface{}
+	Sorter     interface{}
+	Projection interface{}
+	Limit      int64
+	Skip       int64
 }
 
 func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
@@ -247,6 +248,10 @@ func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
 
 	if opt.Filter == nil {
 		opt.Filter = bson.D{{}}
+	}
+
+	if opt.Projection != nil {
+		opts.SetProjection(opt.Projection)
 	}
 
 	cursor, err := c.Find(context.Background(), opt.Filter, opts)
