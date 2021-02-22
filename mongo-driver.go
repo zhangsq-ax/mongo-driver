@@ -43,7 +43,7 @@ type ListOption struct {
 }
 
 func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
-	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d", opts.Username, opts.Password, opts.Host, opts.Port))
+	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", opts.Username, opts.Password, opts.Host, opts.Port, opts.Database))
 	if err != nil {
 		return nil, err
 	}
