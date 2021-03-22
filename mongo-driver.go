@@ -21,11 +21,12 @@ type MongoDriver struct {
 }
 
 type MongoDriverOptions struct {
-	Database string
-	Host     string
-	Port     int
-	Username string
-	Password string
+	Database   string
+	Host       string
+	Port       int
+	Username   string
+	Password   string
+	AuthSource string
 }
 
 type IndexOption struct {
@@ -43,7 +44,12 @@ type ListOption struct {
 }
 
 func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
-	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin", opts.Username, opts.Password, opts.Host, opts.Port, opts.Database))
+	authSource := ""
+	if opts.AuthSource != "" {
+		authSource = fmt.Sprintf("?authSource=%s", opts.AuthSource)
+	}
+
+	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d/%s%s", opts.Username, opts.Password, opts.Host, opts.Port, opts.Database, authSource))
 	if err != nil {
 		return nil, err
 	}
