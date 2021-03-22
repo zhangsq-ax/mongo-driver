@@ -30,7 +30,7 @@ type MongoDriverOptions struct {
 
 type IndexOption struct {
 	Name   string
-	Keys   map[string]int
+	Keys   map[string]interface{}
 	Unique bool
 }
 
@@ -43,7 +43,7 @@ type ListOption struct {
 }
 
 func NewMongoDriver(opts MongoDriverOptions) (*MongoDriver, error) {
-	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", opts.Username, opts.Password, opts.Host, opts.Port, opts.Database))
+	client, err := connect(fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin", opts.Username, opts.Password, opts.Host, opts.Port, opts.Database))
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +183,8 @@ func hasIndex(c *mongo.Collection, idxName string) (bool, error) {
 func generateIndexName(opts *IndexOption) {
 	if opts.Name == "" {
 		var fields []string
-		for field, _ := range opts.Keys {
-			fields = append(fields, field)
+		for key, val := range opts.Keys {
+			fields = append(fields, fmt.Sprintf("%s_%v", key, val))
 		}
 		sort.Strings(fields)
 		opts.Name = fmt.Sprintf("idx_%s", strings.Join(fields, "_"))
@@ -195,6 +195,7 @@ func CreateIndex(c *mongo.Collection, opts ...*IndexOption) error {
 	for _, opt := range opts {
 		generateIndexName(opt)
 		exists, err := hasIndex(c, opt.Name)
+		log.Println(opt.Name, exists)
 		if err != nil {
 			return err
 		}
@@ -208,6 +209,7 @@ func CreateIndex(c *mongo.Collection, opts ...*IndexOption) error {
 			iv := c.Indexes()
 			str, err := iv.CreateOne(context.Background(), im)
 			log.Println(str)
+			log.Println(err)
 			if err != nil {
 				return err
 			}
