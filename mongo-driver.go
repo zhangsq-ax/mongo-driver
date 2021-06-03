@@ -245,7 +245,7 @@ func RemoveIndexByOption(c *mongo.Collection, opts ...*IndexOption) error {
 	return RemoveIndex(c, indexNames...)
 }
 
-func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
+func CursorList(c *mongo.Collection, opt *ListOption) (cursor *mongo.Cursor, err error) {
 	opts := options.Find()
 	if opt.Limit > 0 {
 		opts.SetLimit(opt.Limit).SetSkip(opt.Skip)
@@ -262,7 +262,11 @@ func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
 		opts.SetProjection(opt.Projection)
 	}
 
-	cursor, err := c.Find(context.Background(), opt.Filter, opts)
+	return c.Find(context.Background(), opt.Filter, opts)
+}
+
+func List(c *mongo.Collection, opt *ListOption, results interface{}) error {
+	cursor, err := CursorList(c, opt)
 	if err != nil {
 		return err
 	}
