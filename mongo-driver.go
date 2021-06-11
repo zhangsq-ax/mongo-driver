@@ -95,15 +95,16 @@ func (d *MongoDriver) UploadFile(gridfsBucketName, fileID, fileName string, file
 func (d *MongoDriver) DownloadFile(gridfsBucketName, fileID string) (fileInfo *gridfs.File, fileContent []byte, err error) {
 	var stream *gridfs.DownloadStream
 	stream, err = d.GetFileDownloadStream(gridfsBucketName, fileID)
+	if err != nil {
+		return
+	}
 	defer func() {
 		err := stream.Close()
 		if err != nil {
 			log.Println(err)
 		}
 	}()
-	if err != nil {
-		return
-	}
+
 	fileInfo = stream.GetFile()
 	var bucket *gridfs.Bucket
 	bucket, err = d.GetGridfsBucket(gridfsBucketName)
